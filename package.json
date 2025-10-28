@@ -1,10 +1,13 @@
 {
-  "name": "aci-netlify",
+  "name": "aci-tracker",
   "version": "1.0.0",
-  "description": "",
+  "description": "ACI 배송조회",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
   },
   "keywords": [],
   "author": "",
