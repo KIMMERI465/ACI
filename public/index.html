@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACI 배송조회</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background: #f5f5f5;
+        }
+        .container { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 10px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .tracking-form {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .tracking-input { 
+            flex: 1;
+            min-width: 200px;
+            padding: 12px; 
+            border: 1px solid #ddd; 
+            border-radius: 4px; 
+            font-size: 16px;
+        }
+        .tracking-btn { 
+            padding: 12px 24px; 
+            background: #000; 
+            color: white; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .tracking-btn:hover {
+            background: #333;
+        }
+        .result-box { 
+            margin-top: 20px; 
+            padding: 20px; 
+            background: #f9f9f9; 
+            border-radius: 8px; 
+            border-left: 4px solid #007cba;
+        }
+        .loading { 
+            display: none; 
+            color: #007cba; 
+            margin: 20px 0;
+            text-align: center;
+            font-size: 18px;
+        }
+        .status-item {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 3px solid #007cba;
+        }
+        
+        /* 모바일 대응 */
+        @media (max-width: 768px) {
+            .container { padding: 20px; }
+            .tracking-form { flex-direction: column; }
+            .tracking-input { min-width: auto; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 style="text-align: center; margin-bottom: 30px;">🚚 ACI 배송조회</h1>
+        
+        <div class="tracking-form">
+            <input type="text" class="tracking-input" id="trackingInput" 
+                   placeholder="운송장번호를 입력하세요">
+            <button class="tracking-btn" onclick="trackDelivery()">조회하기</button>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div>🔍 조회중...</div>
+        </div>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // Netlify Functions URL (배포 후 변경)
+        const SERVER_URL = '/.netlify/functions/track';
+
+        async function trackDelivery() {
+            const blno = document.getElementById('trackingInput').value.trim();
+            const resultDiv = document.getElementById('result');
+            const loading = document.getElementById('loading');
+            
+            if (!blno) {
+                resultDiv.innerHTML = '<div style="color: red; text-align: center; padding: 20px;">🚫 운송장번호를 입력해주세요</div>';
+                return;
+            }
+            
+            loading.style.display = 'block';
+            resultDiv.innerHTML = '';
+            
+            try {
+                const response = await fetch(`${SERVER_URL}?blno=${blno}`);
+                const data = await response.json();
+                
+                if (data.Status === 'success') {
+                    displayTrackingInfo(data.PODInfo[0]);
+                } else {
+                    resultDiv.innerHTML = `<div style="color: red; text-align: center; padding: 20px;">❌ ${data.RstMsg || '조회 실패'}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = '<div style="color: red; text-align: center; padding: 20px;">💥 서버 연결 실패</div>';
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        function displayTrackingInfo(info) {
+            const customs = info.CUSTOMS?.[0] || [];
+            const latestStatus = customs[customs.length - 1] || {};
+            
+            const html = `
+                <div class="result-box">
+                    <h3 style="margin-top: 0; color: #007cba;">📦 배송정보</h3>
+                    
+                    <div style="background: #e8f4fd; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <p><strong>운송장번호:</strong> ${info.BLNO || ''}</p>
+                        <p><strong>현재상태:</strong> ${latestStatus.TRACE_STATUS || '통관 진행중'}</p>
+                        <p><strong>최종업데이트:</strong> ${latestStatus.DATE_EVENT || '정보없음'}</p>
+                        <p><strong>무게:</strong> ${info.WTA || ''} ${info.WTDAN || ''}</p>
+                        <p><strong>인천도착:</strong> ${info.DATE_ICNARRIVAL || '정보없음'}</p>
+                    </div>
+                    
+                    ${customs.length > 0 ? `
+                    <h4>📋 진행 이력</h4>
+                    ${customs.map((item, index) => `
+                        <div class="status-item">
+                            <strong>${item.TRACE_STATUS}</strong><br>
+                            <small style="color: #666;">${item.DATE_EVENT}</small>
+                        </div>
+                    `).join('')}
+                    ` : ''}
+                </div>
+            `;
+            
+            document.getElementById('result').innerHTML = html;
+        }
+
+        // 엔터키 지원
+        document.getElementById('trackingInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') trackDelivery();
+        });
+    </script>
+</body>
+</html>
